@@ -105,7 +105,12 @@ async function mongodbCURD() {
     GET All order API
     ------------------------------------- */
     app.get('/orders', async (req, res) => {
-      const cursor = orderCollection.find({});
+      const email = req.query.email;
+      let query = {};
+      if (email) {
+        query = { email: email };
+      }
+      const cursor = orderCollection.find(query);
       const orders = await cursor.toArray();
       res.send(orders);
     });
@@ -147,6 +152,24 @@ async function mongodbCURD() {
       const result = await orderCollection.updateOne(query, {
         $set: { status: updatedStatus },
       });
+      res.json(result);
+    });
+    /* ------------------------------------- 
+    GET All Reviews API
+    ------------------------------------- */
+    app.get('/reviews', async (req, res) => {
+      const cursor = reviewCollection.find({});
+      const reviews = await cursor.toArray();
+      res.send(reviews);
+    });
+    /* ------------------------------------- 
+    POST Single Review API
+    ------------------------------------- */
+    app.post('/reviews', async (req, res) => {
+      // Step 1. data
+      const review = req.body;
+      // Step 2. insertOne
+      const result = await reviewCollection.insertOne(review);
       res.json(result);
     });
   } finally {
