@@ -1,11 +1,18 @@
 const express = require('express');
 const { MongoClient } = require('mongodb');
+const admin = require('firebase-admin');
 const cors = require('cors');
 require('dotenv').config();
 const ObjectId = require('mongodb').ObjectId;
 
 const app = express();
 const port = process.env.PORT || 5000;
+
+//Firebase Service Account
+const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+});
 
 // middleware
 app.use(cors());
@@ -17,6 +24,17 @@ const client = new MongoClient(uri, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
+
+async function verifyToken(req, res, next) {
+  if (req.headers?.authorization.startsWith('Bearer ')) {
+    const token = req.headers.authorization.split(' ')[1];
+    try {
+      const decodedUser = await admin.auth().verifyIdToken(token);
+      req.decodedEmail = decodedUser.email;
+    } catch (err) {}
+  }
+  next();
+}
 
 async function mongodbCURD() {
   try {
@@ -70,14 +88,36 @@ async function mongodbCURD() {
       res.json(result);
     });
     /* ------------------------------------- 
-    Make An Admin API
+    Make An Admin API(Update existing user with admin role)
+    ------------------------------------- */
+    app.put('/users/admin', verifyToken, async (req, res) => {
+      const user = req.body;
+      const requester = req.decodedEmail;
+      if (requester) {
+        const requesterAccount = await userCollection.findOne({
+          email: requester,
+        });
+        if (requesterAccount.role === 'admin') {
+          const query = { email: user.email };
+          const updateDoc = { $set: { role: 'admin' } };
+          const result = await userCollection.updateOne(query, updateDoc);
+          res.json(result);
+        }
+      } else {
+        res
+          .status(401)
+          .json({ message: 'You donot have permission to make an admin.' });
+      }
+    });
+    /* ------------------------------------- 
+   Get Admin API
     ------------------------------------- */
     app.get('/users/:email', async (req, res) => {
       const email = req.params.email;
       const query = { email: email };
-      const result = await userCollection.findOne(query);
+      const user = await userCollection.findOne(query);
       let isAdmin = false;
-      if (result?.role === 'admin') {
+      if (user?.role === 'admin') {
         isAdmin = true;
       }
       res.json({ admin: isAdmin });
