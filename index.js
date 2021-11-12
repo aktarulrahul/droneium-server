@@ -42,7 +42,6 @@ async function mongodbCURD() {
      checking connection with DB
     ------------------------------------- */
     await client.connect();
-    console.log('DB Connected');
     /* ------------------------------------- 
     database name and collection init
     ------------------------------------- */
